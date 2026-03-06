@@ -24,12 +24,12 @@ class FilmclusiveSaveTextNode:
     def INPUT_TYPES(cls):
         return {
             "required": {
-                "text": ("STRING", {"multiline": True}),
-                "project_name": ("STRING", {"default": "project"}),
-                "scene": ("STRING", {"default": "scene_1"}),
-                "shot": ("STRING", {"default": "shot_A"}),
+                "text": ("STRING", {"multiline": True, "forceInput": True}),
+                "project_name": ("STRING", {"default": "project", "forceInput": True}),
+                "scene": ("STRING", {"default": "scene_1", "forceInput": True}),
+                "shot": ("STRING", {"default": "shot_A", "forceInput": True}),
                 "take": ("INT", {"default": 1, "min": 1, "max": 999}),
-                "description": ("STRING", {"default": "notes"}),
+                "description": ("STRING", {"default": "notes", "forceInput": True}),
             }
         }
 
