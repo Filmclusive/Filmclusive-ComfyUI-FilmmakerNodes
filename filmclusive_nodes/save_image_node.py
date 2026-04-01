@@ -142,7 +142,7 @@ class FilmclusiveSaveImage:
             preview_list.append(
                 {
                     "filename": filename,
-                    "subfolder": os.path.join(safe_project, safe_scene, safe_shot),
+                    "subfolder": "/".join([safe_project, safe_scene, safe_shot]),
                     "type": "output",
                 }
             )
@@ -158,4 +158,3 @@ NODE_CLASS_MAPPINGS = {
 NODE_DISPLAY_NAME_MAPPINGS = {
     "FilmclusiveSaveImage": "Filmclusive Save Image",
 }
-

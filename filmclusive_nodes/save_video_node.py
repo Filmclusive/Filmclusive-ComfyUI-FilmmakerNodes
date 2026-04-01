@@ -16,6 +16,10 @@ except Exception:
     _LANCZOS = Image.LANCZOS
 
 
+def _norm_subfolder(*parts: str) -> str:
+    return "/".join([p for p in parts if p])
+
+
 def _sanitize_segment(value: str, fallback: str) -> str:
     value = (value or "").strip()
     if not value:
@@ -50,6 +54,60 @@ def _resolve_ffmpeg() -> str:
         return ""
 
 
+def _resolve_video_source(video=None, video_info=None, video_native=None, video_path: str | None = None) -> str:
+    """
+    Best-effort extraction of an on-disk video path from common ComfyUI/VHS payloads.
+    Returns "" when unknown/unavailable.
+    """
+
+    def from_dict(payload: dict) -> str:
+        for key in ("fullpath", "path", "file", "video", "filename", "name"):
+            value = payload.get(key)
+            if not isinstance(value, str) or not value.strip():
+                continue
+            value = value.strip()
+            if os.path.isabs(value) and os.path.isfile(value):
+                return value
+
+            subfolder = payload.get("subfolder") or ""
+            kind = payload.get("type")
+            base = None
+            if kind == "input":
+                base = folder_paths.get_input_directory()
+            elif kind == "output":
+                base = folder_paths.get_output_directory()
+            elif kind == "temp" and hasattr(folder_paths, "get_temp_directory"):
+                base = folder_paths.get_temp_directory()
+            if base:
+                candidate = os.path.join(base, subfolder, value)
+                if os.path.isfile(candidate):
+                    return candidate
+        return ""
+
+    if isinstance(video_path, str) and video_path.strip():
+        candidate = video_path.strip()
+        if os.path.isfile(candidate):
+            return candidate
+
+    for payload in (video, video_info, video_native):
+        if isinstance(payload, str) and payload.strip() and os.path.isfile(payload.strip()):
+            return payload.strip()
+        if isinstance(payload, dict):
+            found = from_dict(payload)
+            if found:
+                return found
+        if isinstance(payload, (list, tuple)) and len(payload) == 1:
+            inner = payload[0]
+            if isinstance(inner, dict):
+                found = from_dict(inner)
+                if found:
+                    return found
+            if isinstance(inner, str) and inner.strip() and os.path.isfile(inner.strip()):
+                return inner.strip()
+
+    return ""
+
+
 def _frame_to_rgb_u8(frame, width: int, height: int) -> np.ndarray:
     arr = frame.cpu().numpy()
     if arr.ndim != 3:
@@ -78,7 +136,6 @@ class _FilmclusiveSaveVideoBase:
     @classmethod
     def INPUT_TYPES(cls):
         required = {
-            "images": ("IMAGE",),
             "fps": ("INT", {"default": 24, "min": 1, "max": 240}),
             "project_name": ("STRING", {"default": "FilmclusiveProject"}),
             "scene": ("STRING", {"default": "01"}),
@@ -90,7 +147,12 @@ class _FilmclusiveSaveVideoBase:
         return {
             "required": required,
             "optional": {
+                "images": ("IMAGE",),
                 "comparison_images": ("IMAGE",),
+                "video": ("VHS_VIDEO",),
+                "video_info": ("VHS_VIDEOINFO",),
+                "video_native": ("VIDEO",),
+                "video_path": ("STRING", {"default": ""}),
             },
             "hidden": {
                 "prompt": "PROMPT",
@@ -102,7 +164,7 @@ class _FilmclusiveSaveVideoBase:
     def _format_inputs(cls):
         return {}
 
-    RETURN_TYPES = ("STRING", "INT", "STRING", "STRING", "STRING", "INT", "STRING")
+    RETURN_TYPES = ("STRING", "INT", "STRING", "STRING", "STRING", "STRING", "INT", "STRING")
     RETURN_NAMES = ("file_path", "take", "output_dir", "project_name", "scene", "shot", "fps", "comparison_file_path")
     FUNCTION = "save"
     OUTPUT_NODE = True
@@ -239,33 +301,32 @@ class _FilmclusiveSaveVideoBase:
         thumb_img = Image.fromarray(np.clip(first[..., :3] * 255.0, 0, 255).astype(np.uint8), mode="RGB")
         thumb_img.save(thumb_path)
 
-        preview_item = {
-            "filename": thumb_filename,
-            "subfolder": os.path.join(safe_project, safe_scene, safe_shot),
-            "type": "output",
-        }
+        subfolder = _norm_subfolder(safe_project, safe_scene, safe_shot)
+        preview_item = {"filename": thumb_filename, "subfolder": subfolder, "type": "output"}
+        video_item = {"filename": video_filename, "subfolder": subfolder, "type": "output"}
 
-        return video_path, preview_item
+        return video_path, preview_item, video_item
 
     def save(
         self,
-        images,
         fps,
         project_name,
         scene,
         shot,
         description,
         save_comparison_video,
+        images=None,
         comparison_images=None,
+        video=None,
+        video_info=None,
+        video_native=None,
+        video_path="",
         prompt=None,
         extra_pnginfo=None,
         **kwargs,
     ):
+        source_video_path = _resolve_video_source(video=video, video_info=video_info, video_native=video_native, video_path=video_path)
         ffmpeg = _resolve_ffmpeg()
-        if not ffmpeg:
-            raise RuntimeError(
-                "ffmpeg not found. Install ffmpeg or set FFMPEG_PATH to the ffmpeg binary path."
-            )
 
         safe_project = _sanitize_segment(project_name, "project")
         safe_scene = _sanitize_segment(scene, "scene_1")
@@ -274,6 +335,7 @@ class _FilmclusiveSaveVideoBase:
 
         shot_folder = os.path.join(self.output_dir, safe_project, safe_scene, safe_shot)
         os.makedirs(shot_folder, exist_ok=True)
+        subfolder = _norm_subfolder(safe_project, safe_scene, safe_shot)
 
         base_prefix = f"{safe_scene}_{safe_shot}_take_"
         take = self._get_next_take(shot_folder, base_prefix)
@@ -296,29 +358,96 @@ class _FilmclusiveSaveVideoBase:
 
         encode_kwargs = {k: v for k, v in kwargs.items() if k in format_keys}
 
-        main_frames = list(images)
-        video_path, main_preview = self._save_bundle(
-            ffmpeg=ffmpeg,
-            frames=main_frames,
-            fps=int(fps),
-            project_name=project_name,
-            scene=scene,
-            shot=shot,
-            take=take,
-            description=description,
-            timestamp=timestamp,
-            shot_folder=shot_folder,
-            safe_project=safe_project,
-            safe_scene=safe_scene,
-            safe_shot=safe_shot,
-            base_name=base_name,
-            prompt=prompt,
-            workflow=workflow,
-            settings=kwargs,
-            **encode_kwargs,
-        )
+        image_preview_list = []
+        video_preview_list = []
 
-        preview_list = [main_preview]
+        if source_video_path:
+            src_ext = os.path.splitext(source_video_path)[1].lstrip(".").lower() or self.EXT
+            video_filename = f"{base_name}.{src_ext}"
+            main_video_path = os.path.join(shot_folder, video_filename)
+            shutil.copy2(source_video_path, main_video_path)
+
+            video_preview_list.append({"filename": video_filename, "subfolder": subfolder, "type": "output"})
+
+            # Write metadata bundle even when we "copy" instead of encoding.
+            meta = {
+                "project_name": project_name,
+                "scene": scene,
+                "shot": shot,
+                "take": take,
+                "description": description,
+                "timestamp": timestamp,
+                "fps": int(fps),
+                "frames": None,
+                "width": None,
+                "height": None,
+                "format": src_ext,
+                "codec": "copy",
+                "prompt": prompt,
+                "workflow": workflow,
+                "settings": kwargs,
+            }
+            if isinstance(video_info, dict):
+                for k_src, k_dst in (("fps", "fps"), ("frame_count", "frames"), ("frames", "frames"), ("width", "width"), ("height", "height")):
+                    if k_src in video_info and meta.get(k_dst) in (None, int(fps)):
+                        meta[k_dst] = video_info.get(k_src)
+            _write_json(os.path.join(shot_folder, f"{base_name}.meta.json"), meta)
+            if prompt is not None:
+                _write_json(os.path.join(shot_folder, f"{base_name}.prompt.json"), prompt)
+            if workflow is not None:
+                _write_json(os.path.join(shot_folder, f"{base_name}.workflow.json"), workflow)
+
+            # Thumbnail: prefer first provided frame; else attempt ffmpeg.
+            thumb_filename = self._thumbnail_path(base_name)
+            thumb_path = os.path.join(shot_folder, thumb_filename)
+            try:
+                frames = list(images) if images is not None else []
+                if frames:
+                    first = frames[0].cpu().numpy()
+                    thumb_img = Image.fromarray(np.clip(first[..., :3] * 255.0, 0, 255).astype(np.uint8), mode="RGB")
+                    thumb_img.save(thumb_path)
+                elif ffmpeg:
+                    subprocess.run(
+                        [ffmpeg, "-y", "-hide_banner", "-loglevel", "error", "-i", main_video_path, "-frames:v", "1", thumb_path],
+                        check=True,
+                    )
+            except Exception as e:
+                print(f"[Filmclusive] Thumbnail generation skipped: {e}")
+
+            if os.path.isfile(thumb_path):
+                image_preview_list.append({"filename": thumb_filename, "subfolder": subfolder, "type": "output"})
+
+            video_path = main_video_path
+        else:
+            frames = list(images) if images is not None else []
+            if not frames:
+                raise ValueError("Provide either `images` frames or a `video` / `video_info` / `video_path` input.")
+            if not ffmpeg:
+                raise RuntimeError("ffmpeg not found. Install ffmpeg or set FFMPEG_PATH to the ffmpeg binary path.")
+
+            video_path, main_image_preview, main_video_preview = self._save_bundle(
+                ffmpeg=ffmpeg,
+                frames=frames,
+                fps=int(fps),
+                project_name=project_name,
+                scene=scene,
+                shot=shot,
+                take=take,
+                description=description,
+                timestamp=timestamp,
+                shot_folder=shot_folder,
+                safe_project=safe_project,
+                safe_scene=safe_scene,
+                safe_shot=safe_shot,
+                base_name=base_name,
+                prompt=prompt,
+                workflow=workflow,
+                settings=kwargs,
+                **encode_kwargs,
+            )
+
+            image_preview_list.append(main_image_preview)
+            video_preview_list.append(main_video_preview)
 
         comparison_video_path = ""
         try:
@@ -326,7 +455,9 @@ class _FilmclusiveSaveVideoBase:
                 compare_frames = list(comparison_images) if comparison_images is not None else []
                 if compare_frames:
                     compare_base_name = f"{base_name}_compare"
-                    comparison_video_path, compare_preview = self._save_bundle(
+                    if not ffmpeg:
+                        raise RuntimeError("ffmpeg not found. Install ffmpeg or set FFMPEG_PATH to the ffmpeg binary path.")
+                    comparison_video_path, compare_image_preview, compare_video_preview = self._save_bundle(
                         ffmpeg=ffmpeg,
                         frames=compare_frames,
                         fps=int(fps),
@@ -350,7 +481,8 @@ class _FilmclusiveSaveVideoBase:
                         settings=kwargs,
                         **encode_kwargs,
                     )
-                    preview_list.append(compare_preview)
+                    image_preview_list.append(compare_image_preview)
+                    video_preview_list.append(compare_video_preview)
         except Exception as e:
             print(f"[Filmclusive] Comparison save skipped: {e}")
 
@@ -362,7 +494,7 @@ class _FilmclusiveSaveVideoBase:
         output_dir = self.output_dir.replace("\\", "/")
         pretty_output_dir = "/".join(output_dir.split("/")[-2:]) if "/" in output_dir else output_dir
         return {
-            "ui": {"images": preview_list},
+            "ui": {"images": (image_preview_list + video_preview_list), "videos": video_preview_list},
             "result": (
                 video_path,
                 int(take),
@@ -465,7 +597,6 @@ class FilmclusiveSaveVideoSimple(FilmclusiveSaveVideoMP4):
     def INPUT_TYPES(cls):
         return {
             "required": {
-                "images": ("IMAGE",),
                 "fps": ("INT", {"default": 24, "min": 1, "max": 240}),
                 "project_name": ("STRING", {"default": "FilmclusiveProject"}),
                 "scene": ("STRING", {"default": "01"}),
@@ -503,7 +634,12 @@ class FilmclusiveSaveVideoSimple(FilmclusiveSaveVideoMP4):
                 ),
             },
             "optional": {
+                "images": ("IMAGE",),
                 "comparison_images": ("IMAGE",),
+                "video": ("VHS_VIDEO",),
+                "video_info": ("VHS_VIDEOINFO",),
+                "video_native": ("VIDEO",),
+                "video_path": ("STRING", {"default": ""}),
             },
             "hidden": {
                 "prompt": "PROMPT",

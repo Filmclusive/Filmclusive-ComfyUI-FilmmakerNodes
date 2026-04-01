@@ -57,7 +57,7 @@ class FilmclusiveCinemaTakeSaver:
             preview_list.append(
                 {
                     "filename": filename,
-                    "subfolder": os.path.join(project, scene_name, shot_name),
+                    "subfolder": "/".join([project, scene_name, shot_name]),
                     "type": "output",
                 }
             )
@@ -73,4 +73,3 @@ NODE_CLASS_MAPPINGS = {
 NODE_DISPLAY_NAME_MAPPINGS = {
     "FilmclusiveCinemaTakeSaver": "Filmclusive Cinema Take Saver",
 }
-
