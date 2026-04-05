@@ -75,3 +75,5 @@ More testing
 
 ---
 *Created by a filmmaker, for filmmakers. Stay organized, stay creative.*
+
+Sponsored by https://www.nomadplatforms.com/
