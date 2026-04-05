@@ -1,6 +1,9 @@
 # Filmclusive Node Pack for ComfyUI
 ### Organize your generations like a real film production.
 
+<img width="289" height="227" alt="image" src="https://github.com/user-attachments/assets/0cbc73c5-421a-4bb2-a934-05776864b953" />
+
+
 > **Note:** These nodes are currently in **Beta**. They are designed to make it easier to select and update your file and folder names on the fly, keeping your production organized.
 
 ## The Problem: The "Output Folder" Mess
