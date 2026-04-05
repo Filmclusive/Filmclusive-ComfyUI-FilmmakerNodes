@@ -44,9 +44,11 @@ We've wrapped standard ComfyUI logic in labels that make sense to a Director or 
 ## Installation
 
 ### Via ComfyUI Manager
-1. Search for `Filmclusive` in the ComfyUI Manager.
-2. Click **Install**.
-3. Restart ComfyUI.
+1. Download these nodes into your documents/ComfyUI/custom_nodes
+2. Restart ComfyUI.
+3. Open Comfy
+4. Double click empty space on your workflow
+5. Replace current node with this. 
 
 ### Manual Installation
 1. Navigate to your `ComfyUI/custom_nodes` directory.
@@ -64,6 +66,12 @@ If you have an existing workflow and want to swap your standard nodes for Filmcl
 ```bash
 python3 filmclusive_nodes/tools/migrate_workflow_nodes.py /path/to/input.json /path/to/output.migrated.json
 ```
+
+
+## What still needs to be worked on
+Videos playing direclty in the node like the video one. 
+Clean up of "output" (not fully needed)
+More testing
 
 ---
 *Created by a filmmaker, for filmmakers. Stay organized, stay creative.*
