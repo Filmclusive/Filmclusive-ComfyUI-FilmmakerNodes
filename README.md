@@ -28,15 +28,15 @@ Coming from a background of 15 years in filmmaking, I built these nodes because 
 
 ### 🎬 The "Vault" (Saving & Logging)
 *   **Filmclusive Save Image:** A smart replacement for the standard Save Image node. It handles auto-incrementing takes, embeds PNG metadata, and saves your prompt/workflow as a sidecar file for instant recall.
-*   **Filmclusive Save Video (MP4/WebM/GIF):** Encodes image batches into professional video takes (requires `ffmpeg`) and generates UI thumbnails so you can see what you've rendered without leaving ComfyUI.
-*   **Filmclusive Save Text:** Logs project notes, scene descriptions, or shot details directly into your project folders.
-*   **Filmclusive Shot Logger:** Keeps a running log of your production's progress and metadata.
+*   **Filmclusive Save Video (MP4/WebM/GIF):** Replace this node with your current video output and it'll put it into the right folder for you. 
+*   **Filmclusive Save Text:** Logs project notes, scene descriptions, or shot details directly into your project folders. (not that we use text node, but hey, thought I'd add it)
+*   **Filmclusive Shot Logger:** Keeps a running log of your production's progress and metadata. (still testing. Supposed to go into a spreadsheet)
 *   **Filmclusive Cinema Take Saver:** Specialized for archival screenshots and high-quality production "stills" from your workflow.
 
 ### 🎥 The "Set" (Filmmaker Wrappers)
 We've wrapped standard ComfyUI logic in labels that make sense to a Director or DP:
 *   **Filmmaker Multi-LoRA:** Stack your LoRAs into clearly labeled creative "slots" (Style, Character, Props, Lighting, Camera, Set Design) instead of a confusing list.
-*   **Filmmaker KSampler:** A wrapper that uses cinematic terminology like "Prompt Strength" (CFG) while maintaining the underlying power of ComfyUI.
+*   **Filmmaker KSampler:** A wrapper that uses dummy proof terminology like "Prompt Strength" (CFG) while maintaining the underlying power of ComfyUI.
 *   **WanVideo (Filmmaker Wrappers):** Dedicated wrappers for WanVideo models and samplers with clearer labels and helpful tooltips for professional use.
 
 ---
@@ -57,15 +57,6 @@ We've wrapped standard ComfyUI logic in labels that make sense to a Director or 
    git clone https://github.com/filmclusive/Filmclusive-ComfyUI-FilmmakerNodes.git
    ```
 3. Restart ComfyUI.
-
----
-
-## Workflow Migration Helper
-If you have an existing workflow and want to swap your standard nodes for Filmclusive filmmaker nodes, you can use our migration script:
-
-```bash
-python3 filmclusive_nodes/tools/migrate_workflow_nodes.py /path/to/input.json /path/to/output.migrated.json
-```
 
 
 ## What still needs to be worked on
