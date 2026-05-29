@@ -3,6 +3,13 @@
 
 <img width="289" height="227" alt="image" src="https://github.com/user-attachments/assets/0cbc73c5-421a-4bb2-a934-05776864b953" />
 
+<img width="329" height="453" alt="Screenshot 2026-05-29 at 10 28 04 AM" src="https://github.com/user-attachments/assets/bcc21458-24de-44b2-81d2-4aebe2c948a9" />
+
+<img width="410" height="398" alt="Screenshot 2026-05-29 at 10 28 38 AM" src="https://github.com/user-attachments/assets/0dab6468-efc3-4c22-a30b-570af7e175f6" />
+
+<img width="340" height="564" alt="Screenshot 2026-05-29 at 10 29 31 AM" src="https://github.com/user-attachments/assets/2509792a-0465-4fa5-adce-43fb1a93622b" />
+
+<img width="1475" height="388" alt="Screenshot 2026-05-29 at 10 37 31 AM" src="https://github.com/user-attachments/assets/4bfd738d-5fdd-4865-baf4-a7f01325bca3" />
 
 > **Note:** These nodes are currently in **Beta**. They are designed to make it easier to select and update your file and folder names on the fly, keeping your production organized.
 
